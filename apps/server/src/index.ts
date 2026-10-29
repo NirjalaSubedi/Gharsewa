@@ -3,12 +3,14 @@ import express, { type ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { z } from 'zod';
-import { connectDatabase, pool } from './db/client.js';
+import { connectDatabase, pool } from './config/db.js';
+import authRoutes from './routes/authRoutes.js';
 
 const app = express();
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173' }));
 app.use(express.json({ limit: '1mb' }));
+app.use('/api/auth', authRoutes);
 const asyncRoute = (fn: express.RequestHandler): express.RequestHandler => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const id = z.string().uuid();
 const coordinates = z.object({ latitude: z.coerce.number().min(-90).max(90), longitude: z.coerce.number().min(-180).max(180) });

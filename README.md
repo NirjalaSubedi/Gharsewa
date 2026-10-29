@@ -26,12 +26,21 @@ The client runs at `http://localhost:5173` and the API at `http://localhost:4000
 ```text
 apps/
   client/       React + Vite + Tailwind UI
-  server/       Express REST API and SQL migration runner
+  server/
+    src/
+      config/          PostgreSQL connection pool
+      controllers/     Request/business logic
+      middleware/      JWT authentication middleware
+      routes/          Express route modules
+      types/           Shared TypeScript types
+      index.ts         Express server entry point
 ```
 
 ## API
 
 - `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
 - `GET /api/services`
 - `GET /api/providers?latitude=26.66&longitude=87.27&radiusKm=5&category=plumbing`
 - `POST /api/estimate` with `{ "prompt": "Fix leaking pipe" }`
