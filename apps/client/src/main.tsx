@@ -1,0 +1,47 @@
+import { StrictMode, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { Search, MapPin, Star, ShieldCheck, MessageCircle, CalendarDays, ChevronRight, Wrench, Sparkles, ChefHat, Scissors, Wheat, Menu, X, LayoutDashboard, Users, BarChart3 } from 'lucide-react';
+import './index.css';
+
+type Role = 'taker' | 'provider' | 'admin';
+const categories = [
+  { name: 'Plumbing', np: 'प्लम्बिङ', icon: Wrench, color: 'bg-blue-50 text-blue-700' },
+  { name: 'Cleaning', np: 'सफाइ', icon: Sparkles, color: 'bg-purple-50 text-purple-700' },
+  { name: 'Cooking', np: 'खाना पकाउने', icon: ChefHat, color: 'bg-orange-50 text-orange-700' },
+  { name: 'Beautician', np: 'ब्यूटीसियन', icon: Scissors, color: 'bg-pink-50 text-pink-700' },
+  { name: 'Farm Worker', np: 'कृषि कामदार', icon: Wheat, color: 'bg-green-50 text-green-700' },
+];
+const providers = [
+  { name: 'Ramesh Thapa', job: 'Master Plumber', rating: '4.9', reviews: 86, distance: '1.2 km', rate: 'NPR 850/hr', initials: 'RT', verified: true, color: 'bg-amber-100' },
+  { name: 'Mina Rai', job: 'Home & Kitchen Expert', rating: '4.8', reviews: 54, distance: '2.4 km', rate: 'NPR 700/hr', initials: 'MR', verified: true, color: 'bg-rose-100' },
+  { name: 'Sanjay Limbu', job: 'Cleaning Specialist', rating: '4.7', reviews: 31, distance: '3.1 km', rate: 'NPR 600/hr', initials: 'SL', verified: false, color: 'bg-sky-100' },
+];
+
+function App() {
+  const [role, setRole] = useState<Role>('taker');
+  const [menu, setMenu] = useState(false);
+  const [selected, setSelected] = useState<string>();
+  const [search, setSearch] = useState('');
+  return <div className="min-h-screen">
+    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-2"><div className="rounded-xl bg-forest p-2 text-white"><Sparkles size={20} /></div><span className="text-xl font-bold tracking-tight">Ghar<span className="text-forest">Sewa</span></span></div>
+        <nav className="hidden items-center gap-7 text-sm font-medium text-slate-600 md:flex"><a className="text-forest">Find help</a><a>How it works</a><a>Become a provider</a></nav>
+        <div className="hidden items-center gap-3 md:flex"><select value={role} onChange={e => setRole(e.target.value as Role)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"><option value="taker">Taker view</option><option value="provider">Provider view</option><option value="admin">Admin panel</option></select><button className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold">Log in</button><button className="btn-primary">Sign up</button></div>
+        <button className="md:hidden" onClick={() => setMenu(!menu)}>{menu ? <X /> : <Menu />}</button>
+      </div>
+      {menu && <div className="border-t px-5 py-4 md:hidden"><select value={role} onChange={e => setRole(e.target.value as Role)} className="w-full rounded-lg border p-2"><option value="taker">Taker view</option><option value="provider">Provider view</option><option value="admin">Admin panel</option></select></div>}
+    </header>
+    {role === 'admin' ? <AdminPanel /> : <main className="mx-auto max-w-7xl px-5 py-10">
+      <section className="mb-10 grid items-center gap-8 md:grid-cols-[1.1fr_.9fr]"><div><p className="mb-3 font-semibold text-forest">घरको काम, सजिलो समाधान</p><h1 className="max-w-xl font-serif text-5xl leading-tight tracking-tight md:text-6xl">Trusted help for your <span className="text-forest">everyday.</span></h1><p className="mt-5 max-w-lg text-lg leading-relaxed text-slate-600">Find trusted local experts for your home, right here in Itahari and Dharan.</p><div className="mt-7 flex flex-col gap-2 rounded-2xl bg-white p-2 shadow-lg shadow-forest/10 sm:flex-row"><div className="flex flex-1 items-center gap-3 rounded-xl bg-slate-50 px-4"><Search size={19} className="text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="What do you need help with?" className="w-full bg-transparent py-3 outline-none" /></div><button className="btn-primary">Find a pro <ChevronRight className="ml-1 inline" size={17} /></button></div></div><div className="relative hidden h-72 overflow-hidden rounded-[2rem] bg-mint md:block"><div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-gold/20" /><div className="absolute bottom-8 left-8 rounded-2xl bg-white p-4 shadow-xl"><div className="flex items-center gap-2"><ShieldCheck size={18} className="text-forest" /><span className="font-semibold">Verified local pros</span></div><p className="mt-1 text-sm text-slate-500">Safe, reliable, and rated by your neighbours</p></div><div className="absolute right-8 top-16 rotate-6 rounded-2xl bg-forest p-8 text-6xl text-white shadow-xl">🧰</div></div></section>
+      <section className="mb-12"><div className="mb-4 flex items-end justify-between"><div><h2 className="text-2xl font-bold">What do you need today?</h2><p className="mt-1 text-sm text-slate-500">Popular services near you <span className="text-forest">• Itahari</span></p></div><button className="hidden text-sm font-semibold text-forest sm:block">View all services <ChevronRight className="inline" size={16} /></button></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">{categories.map(c => { const Icon = c.icon; return <button key={c.name} className="card group p-4 text-left transition hover:-translate-y-1 hover:shadow-md" onClick={() => setSelected(c.name)}><div className={`mb-7 inline-flex rounded-xl p-3 ${c.color}`}><Icon size={22} /></div><div className="font-semibold">{c.name}</div><div className="mt-1 text-xs text-slate-400">{c.np}</div></button> })}</div></section>
+      <section><div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-bold">{selected ?? 'Top-rated professionals'} nearby</h2><p className="mt-1 text-sm text-slate-500">Available now within 5 km of your location</p></div><button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"><MapPin size={16} className="text-forest" /> Itahari, Nepal <ChevronRight size={15} /></button></div><div className="grid gap-4 md:grid-cols-3">{providers.filter(p => !search || `${p.name} ${p.job}`.toLowerCase().includes(search.toLowerCase())).map(p => <ProviderCard key={p.name} provider={p} />)}</div></section>
+    </main>}
+    {role === 'taker' && <button className="fixed bottom-6 right-6 flex items-center gap-2 rounded-full bg-ink px-5 py-3 font-semibold text-white shadow-xl"><MessageCircle size={18} /> Chat</button>}
+  </div>;
+}
+function ProviderCard({ provider: p }: { provider: typeof providers[number] }) {
+  return <article className="card p-5"><div className="flex items-start justify-between"><div className={`flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold ${p.color}`}>{p.initials}</div><div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-700"><Star size={14} fill="currentColor" /> {p.rating}</div></div><h3 className="mt-4 text-lg font-bold">{p.name} {p.verified && <ShieldCheck className="inline text-forest" size={17} />}</h3><p className="text-sm text-slate-500">{p.job}</p><div className="mt-4 flex justify-between border-t border-slate-100 pt-4 text-sm"><span className="flex items-center gap-1 text-slate-500"><MapPin size={15} /> {p.distance}</span><span className="font-semibold text-forest">{p.rate}</span></div><button className="mt-4 w-full rounded-xl border border-forest py-2.5 text-sm font-semibold text-forest hover:bg-mint">Request service</button></article>;
+}
+function AdminPanel() { return <main className="mx-auto max-w-7xl px-5 py-10"><div className="mb-8"><p className="font-semibold text-forest">Operations overview</p><h1 className="mt-1 text-4xl font-bold">Admin dashboard</h1></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[['Active bookings','128','+12.5%',CalendarDays],['Total providers','642','+8.2%',Users],['Verified providers','518','80.6%',ShieldCheck],['Revenue this month','NPR 8.4L','+18.4%',BarChart3]].map(([label, value, delta, Icon]) => { const I = Icon as typeof BarChart3; return <div className="card p-5" key={label as string}><I className="text-forest" size={22} /><p className="mt-5 text-sm text-slate-500">{label as string}</p><div className="mt-1 flex items-end justify-between"><strong className="text-2xl">{value as string}</strong><span className="text-xs font-semibold text-emerald-600">{delta as string}</span></div></div> })}</div><div className="card mt-8 overflow-hidden"><div className="flex items-center justify-between border-b p-5"><h2 className="font-bold">Provider verification queue</h2><button className="text-sm font-semibold text-forest">View all</button></div>{['Bimala Karki · Beautician','Dawa Sherpa · Farm Worker','Anil Yadav · Electrician'].map((name, i) => <div className="flex items-center justify-between border-b px-5 py-4 last:border-0" key={name}><div><p className="font-semibold">{name}</p><p className="text-sm text-slate-500">Submitted {i + 1} day{i ? 's' : ''} ago · Itahari</p></div><button className="rounded-lg bg-mint px-3 py-2 text-sm font-semibold text-forest">Review</button></div>)}</div></main> }
+createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
