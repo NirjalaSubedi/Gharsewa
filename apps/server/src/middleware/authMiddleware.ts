@@ -1,6 +1,6 @@
 import type { NextFunction, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import type { AuthenticatedRequest, AuthenticatedUser } from '../types/index.js';
+import type { AuthenticatedRequest, AuthenticatedUser, UserRole } from '../types/index.js';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -38,4 +38,14 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
   } catch {
     res.status(401).json({ error: 'Invalid or expired authentication token' });
   }
+}
+
+export function requireRole(...roles: UserRole[]): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
+    next();
+  };
 }

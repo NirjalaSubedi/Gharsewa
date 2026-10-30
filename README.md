@@ -42,6 +42,7 @@ apps/
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/services`
+- `POST /api/services` (admin role required) with `{ "name_en": "Plumbing", "name_np": "plumbing" }`
 - `GET /api/providers?latitude=26.66&longitude=87.27&radiusKm=5&category=plumbing`
 - `POST /api/estimate` with `{ "prompt": "Fix leaking pipe" }`
 - `POST /api/bookings`

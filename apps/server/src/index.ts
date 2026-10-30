@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { z } from 'zod';
 import { connectDatabase, pool } from './config/db.js';
+import { authMiddleware, requireRole } from './middleware/authMiddleware.js';
 import authRoutes from './routes/authRoutes.js';
 
 const app = express();
@@ -17,6 +18,17 @@ const coordinates = z.object({ latitude: z.coerce.number().min(-90).max(90), lon
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'gharsewa-api' }));
 app.get('/api/services', asyncRoute(async (_req, res) => res.json((await pool.query('SELECT * FROM services ORDER BY name_en')).rows)));
+app.post('/api/services', authMiddleware, requireRole('admin'), asyncRoute(async (req, res) => {
+  const service = z.object({
+    name_en: z.string().trim().min(1).max(100),
+    name_np: z.string().trim().min(1).max(100)
+  }).parse(req.body);
+  const result = await pool.query(
+    'INSERT INTO services (name_en, name_np) VALUES ($1, $2) RETURNING *',
+    [service.name_en, service.name_np]
+  );
+  res.status(201).json(result.rows[0]);
+}));
 
 app.get('/api/providers', asyncRoute(async (req, res) => {
   const query = coordinates.extend({ radiusKm: z.coerce.number().positive().max(100).default(5), category: z.string().optional() }).parse(req.query);
