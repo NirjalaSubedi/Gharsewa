@@ -7,9 +7,9 @@ import { connectDatabase, pool } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 
 const app = express();
+app.use(express.json({ limit: '1mb' }));
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173' }));
-app.use(express.json({ limit: '1mb' }));
 app.use('/api/auth', authRoutes);
 const asyncRoute = (fn: express.RequestHandler): express.RequestHandler => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const id = z.string().uuid();

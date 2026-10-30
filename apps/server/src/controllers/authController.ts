@@ -25,19 +25,52 @@ const registerSchema = credentials.extend({
   role: z.enum(['taker', 'provider']).default('taker')
 });
 
+function parseBody<T extends z.ZodType>(schema: T, input: unknown, res: Response): z.infer<T> | undefined {
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: 'Invalid request',
+      details: parsed.error.flatten()
+    });
+    return undefined;
+  }
+  return parsed.data;
+}
+
+function isEmailConflict(error: unknown): boolean {
+  return typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '23505' &&
+    'constraint' in error &&
+    error.constraint === 'users_email_key';
+}
+
 function createToken(id: number, email: string, role: UserRole): string {
   return jwt.sign({ id, email, role }, jwtSecret, { expiresIn: '7d' });
 }
 
 export async function register(req: Request, res: Response): Promise<void> {
-  const body = registerSchema.parse(req.body);
+  const body = parseBody(registerSchema, req.body, res);
+  if (!body) return;
+
   const passwordHash = await bcrypt.hash(body.password, 12);
-  const result = await pool.query(
-    `INSERT INTO users (name, email, password_hash, role, phone)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, name, email, role, phone`,
-    [body.name, body.email, passwordHash, body.role, body.phone]
-  );
+  let result;
+  try {
+    result = await pool.query(
+      `INSERT INTO users (name, email, password_hash, role, phone)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, email, role, phone`,
+      [body.name, body.email, passwordHash, body.role, body.phone]
+    );
+  } catch (error) {
+    if (isEmailConflict(error)) {
+      res.status(409).json({ error: 'An account with this email already exists' });
+      return;
+    }
+    throw error;
+  }
+
   const user = result.rows[0] as { id: number; email: string; role: UserRole };
   res.status(201).json({
     user: result.rows[0],
@@ -46,7 +79,9 @@ export async function register(req: Request, res: Response): Promise<void> {
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
-  const body = credentials.parse(req.body);
+  const body = parseBody(credentials, req.body, res);
+  if (!body) return;
+
   const result = await pool.query(
     'SELECT id, name, email, password_hash, role, phone FROM users WHERE email = $1',
     [body.email]
