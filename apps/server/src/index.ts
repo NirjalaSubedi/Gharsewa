@@ -6,12 +6,14 @@ import { z } from 'zod';
 import { connectDatabase, pool } from './config/db.js';
 import { authMiddleware, requireRole } from './middleware/authMiddleware.js';
 import authRoutes from './routes/authRoutes.js';
+import bookingRoutes from './routes/bookingRoutes.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173' }));
 app.use('/api/auth', authRoutes);
+app.use('/api/bookings', bookingRoutes);
 const asyncRoute = (fn: express.RequestHandler): express.RequestHandler => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const id = z.string().uuid();
 const coordinates = z.object({ latitude: z.coerce.number().min(-90).max(90), longitude: z.coerce.number().min(-180).max(180) });
@@ -55,23 +57,6 @@ app.post('/api/estimate', asyncRoute(async (req, res) => {
   res.json({ category, currency: 'NPR', ...presets[category] });
 }));
 
-app.post('/api/bookings', asyncRoute(async (req, res) => {
-  const body = z.object({ takerId: id, providerId: id, totalPrice: z.number().nonnegative(), taskDescription: z.string().min(5), scheduledAt: z.string().datetime() }).parse(req.body);
-  const result = await pool.query(`INSERT INTO bookings (taker_id, provider_id, total_price, task_description, scheduled_at)
-    VALUES ($1,$2,$3,$4,$5) RETURNING *`, [body.takerId, body.providerId, body.totalPrice, body.taskDescription, body.scheduledAt]);
-  res.status(201).json(result.rows[0]);
-}));
-app.get('/api/bookings/:id/messages', asyncRoute(async (req, res) => {
-  const bookingId = id.parse(req.params.id);
-  res.json((await pool.query('SELECT * FROM messages WHERE booking_id=$1 ORDER BY created_at', [bookingId])).rows);
-}));
-app.post('/api/bookings/:id/messages', asyncRoute(async (req, res) => {
-  const bookingId = id.parse(req.params.id);
-  const body = z.object({ senderId: id, receiverId: id, messageText: z.string().trim().min(1).max(2000), quoteAmount: z.number().nonnegative().optional() }).parse(req.body);
-  const result = await pool.query(`INSERT INTO messages (sender_id, receiver_id, booking_id, message_text, quote_amount)
-    VALUES ($1,$2,$3,$4,$5) RETURNING *`, [body.senderId, body.receiverId, bookingId, body.messageText, body.quoteAmount ?? null]);
-  res.status(201).json(result.rows[0]);
-}));
 app.get('/api/admin/metrics', asyncRoute(async (_req, res) => {
   const result = await pool.query(`SELECT (SELECT count(*) FROM users WHERE role='taker') AS takers,
     (SELECT count(*) FROM providers) AS providers, (SELECT count(*) FROM providers WHERE is_verified) AS verified_providers,

@@ -45,10 +45,10 @@ apps/
 - `POST /api/services` (admin role required) with `{ "name_en": "Plumbing", "name_np": "plumbing" }`
 - `GET /api/providers?latitude=26.66&longitude=87.27&radiusKm=5&category=plumbing`
 - `POST /api/estimate` with `{ "prompt": "Fix leaking pipe" }`
-- `POST /api/bookings`
-- `GET /api/bookings/:id/messages`
-- `POST /api/bookings/:id/messages`
+- `POST /api/bookings` (taker role required) with `{ "providerId": "...", "totalPrice": 850, "taskDescription": "Fix leaking tap", "scheduledAt": "2026-11-01T10:00:00.000Z" }`
+- `GET /api/bookings/:id/messages` (booking participant required)
+- `POST /api/bookings/:id/messages` (booking participant required)
 - `GET /api/admin/metrics`
 - `PATCH /api/admin/providers/:id/verify`
 
-Authentication is intentionally represented by `x-user-id` for this starter. Replace that middleware with JWT/session authentication before production deployment. The API validates request bodies, uses parameterized SQL, and centralizes errors.
+Authentication uses JWT bearer tokens from the login response. Send them as `Authorization: Bearer YOUR_TOKEN`. The API validates request bodies, uses parameterized SQL, and centralizes errors.
