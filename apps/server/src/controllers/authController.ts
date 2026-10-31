@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { pool } from '../config/db.js';
+import { sendNotification } from '../services/emailService.js';
 import type { UserRole } from '../types/index.js';
 
 function getJwtSecret(): string {
@@ -72,6 +73,10 @@ export async function register(req: Request, res: Response): Promise<void> {
   }
 
   const user = result.rows[0] as { id: number; email: string; role: UserRole };
+  await sendNotification({
+    subject: `New GharSewa registration: ${user.email}`,
+    text: `A new ${user.role} account was registered.\nName: ${body.name}\nEmail: ${user.email}\nPhone: ${body.phone}`
+  });
   res.status(201).json({
     user: result.rows[0],
     token: createToken(user.id, user.email, user.role)
@@ -96,6 +101,10 @@ export async function login(req: Request, res: Response): Promise<void> {
   }
 
   const { password_hash: _passwordHash, ...safeUser } = user;
+  await sendNotification({
+    subject: `GharSewa login: ${user.email}`,
+    text: `A ${user.role} account logged in.\nEmail: ${user.email}`
+  });
   res.json({
     user: safeUser,
     token: createToken(user.id, user.email, user.role)

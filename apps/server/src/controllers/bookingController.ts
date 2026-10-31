@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import { z } from 'zod';
 import { pool } from '../config/db.js';
+import { sendNotification } from '../services/emailService.js';
 import type { AuthenticatedRequest } from '../types/index.js';
 
 const bookingId = z.string().uuid();
@@ -19,6 +20,10 @@ export async function createBooking(req: AuthenticatedRequest, res: Response): P
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,
     [req.user!.id, body.providerId, body.totalPrice, body.taskDescription, body.scheduledAt]
   );
+  await sendNotification({
+    subject: `New GharSewa booking from user ${req.user!.id}`,
+    text: `A new booking was created.\nTaker ID: ${req.user!.id}\nProvider ID: ${body.providerId}\nTotal price: NPR ${body.totalPrice}\nScheduled at: ${body.scheduledAt}\nDescription: ${body.taskDescription}`
+  });
   res.status(201).json(result.rows[0]);
 }
 

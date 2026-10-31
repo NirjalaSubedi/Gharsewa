@@ -52,3 +52,5 @@ apps/
 - `PATCH /api/admin/providers/:id/verify`
 
 Authentication uses JWT bearer tokens from the login response. Send them as `Authorization: Bearer YOUR_TOKEN`. The API validates request bodies, uses parameterized SQL, and centralizes errors.
+
+Email notifications use Gmail SMTP. Copy `apps/server/.env.example` to `apps/server/.env`, set `SMTP_USER` to the Gmail address that generated the app password, and set `SMTP_PASSWORD` to a newly generated app password without spaces. `MAIL_NOTIFY_TO` is optional and defaults to `SMTP_USER`. Successful registrations, logins, and bookings send notifications. Never commit `.env` or share an app password.
