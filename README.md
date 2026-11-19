@@ -41,6 +41,13 @@ apps/
 - `GET /api/health`
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `GET /api/auth/me` (authenticated user)
+- `PATCH /api/auth/me` (authenticated user; updates `name`, `email`, `phone`, or `password`)
+- `DELETE /api/auth/me` (authenticated user deletes their own account)
+- `GET /api/auth/users` (admin only)
+- `GET /api/auth/users/:id` (admin or the account owner)
+- `PATCH /api/auth/users/:id` (account owner only)
+- `DELETE /api/auth/users/:id` (account owner only)
 - `GET /api/services`
 - `POST /api/services` (admin role required) with `{ "name_en": "Plumbing", "name_np": "plumbing" }`
 - `GET /api/providers?latitude=26.66&longitude=87.27&radiusKm=5&category=plumbing`

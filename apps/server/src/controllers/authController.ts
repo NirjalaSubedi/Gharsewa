@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { pool } from '../config/db.js';
 import { sendNotification } from '../services/emailService.js';
-import type { UserRole } from '../types/index.js';
+import type { AuthenticatedRequest, UserRole } from '../types/index.js';
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -19,6 +19,17 @@ const credentials = z.object({
   email: z.string().email().transform((value) => value.toLowerCase()),
   password: z.string().min(8).max(128)
 });
+
+const accountUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
+  email: z.string().email().transform((value) => value.toLowerCase()).optional(),
+  phone: z.string().trim().min(7).max(20).optional(),
+  password: z.string().min(8).max(128).optional()
+}).refine((body) => Object.keys(body).length > 0, {
+  message: 'At least one account field is required'
+});
+
+const accountIdSchema = z.coerce.number().int().positive();
 
 const registerSchema = credentials.extend({
   name: z.string().trim().min(2).max(100),
@@ -111,4 +122,102 @@ export async function login(req: Request, res: Response): Promise<void> {
     user: safeUser,
     token: createToken(user.id, user.email, user.role)
   });
+}
+
+export async function listUsers(_req: Request, res: Response): Promise<void> {
+  const result = await pool.query(
+    'SELECT id, name, email, role, phone FROM users ORDER BY id'
+  );
+  res.json({ users: result.rows });
+}
+
+export async function getAccount(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const accountId = req.params.id ? accountIdSchema.parse(req.params.id) : req.user!.id;
+
+  if (req.user!.role !== 'admin' && req.user!.id !== accountId) {
+    res.status(403).json({ error: 'You can only view your own account' });
+    return;
+  }
+
+  const result = await pool.query(
+    'SELECT id, name, email, role, phone FROM users WHERE id = $1',
+    [accountId]
+  );
+  if (!result.rowCount) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  res.json({ user: result.rows[0] });
+}
+
+export async function updateAccount(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const accountId = req.params.id ? accountIdSchema.parse(req.params.id) : req.user!.id;
+  if (req.user!.id !== accountId) {
+    res.status(403).json({ error: 'You can only update your own account' });
+    return;
+  }
+
+  const body = parseBody(accountUpdateSchema, req.body, res);
+  if (!body) return;
+
+  const values: unknown[] = [];
+  const assignments: string[] = [];
+  if (body.name !== undefined) {
+    values.push(body.name);
+    assignments.push(`name = $${values.length}`);
+  }
+  if (body.email !== undefined) {
+    values.push(body.email);
+    assignments.push(`email = $${values.length}`);
+  }
+  if (body.phone !== undefined) {
+    values.push(body.phone);
+    assignments.push(`phone = $${values.length}`);
+  }
+  if (body.password !== undefined) {
+    values.push(await bcrypt.hash(body.password, 12));
+    assignments.push(`password_hash = $${values.length}`);
+  }
+
+  values.push(accountId);
+  let result;
+  try {
+    result = await pool.query(
+      `UPDATE users
+       SET ${assignments.join(', ')}
+       WHERE id = $${values.length}
+       RETURNING id, name, email, role, phone`,
+      values
+    );
+  } catch (error) {
+    if (isEmailConflict(error)) {
+      res.status(409).json({ error: 'An account with this email already exists' });
+      return;
+    }
+    throw error;
+  }
+
+  if (!result.rowCount) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  res.json({ user: result.rows[0] });
+}
+
+export async function deleteAccount(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const accountId = req.params.id ? accountIdSchema.parse(req.params.id) : req.user!.id;
+  if (req.user!.id !== accountId) {
+    res.status(403).json({ error: 'You can only delete your own account' });
+    return;
+  }
+
+  const result = await pool.query(
+    'DELETE FROM users WHERE id = $1 RETURNING id, name, email, role, phone',
+    [accountId]
+  );
+  if (!result.rowCount) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  res.json({ message: 'Account deleted successfully', user: result.rows[0] });
 }
