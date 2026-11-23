@@ -90,7 +90,6 @@ export async function register(req: Request, res: Response): Promise<void> {
     to: user.email
   });
   res.status(201).json({
-    user: result.rows[0],
     token: createToken(user.id, user.email, user.role)
   });
 }
