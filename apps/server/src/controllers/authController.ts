@@ -66,6 +66,12 @@ export async function register(req: Request, res: Response): Promise<void> {
   const body = parseBody(registerSchema, req.body, res);
   if (!body) return;
 
+  const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [body.email]);
+  if (existingUser.rowCount) {
+    res.status(409).json({ error: 'An account with this email already exists' });
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(body.password, 12);
   let result;
   try {
@@ -85,11 +91,12 @@ export async function register(req: Request, res: Response): Promise<void> {
 
   const user = result.rows[0] as { id: number; email: string; role: UserRole };
   await sendNotification({
-    subject: `New GharSewa registration: ${user.email}`,
+    subject: 'GharSewa registration successful',
     text: `Your GharSewa account was registered successfully.\nName: ${body.name}\nEmail: ${user.email}\nRole: ${user.role}`,
     to: user.email
   });
   res.status(201).json({
+    user: result.rows[0],
     token: createToken(user.id, user.email, user.role)
   });
 }

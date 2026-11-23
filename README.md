@@ -40,6 +40,8 @@ apps/
 
 - `GET /api/health`
 - `POST /api/auth/register`
+- `POST /api/auth/verify-email` (OTP verification)
+- `POST /api/auth/verify-otp` (compatibility alias)
 - `POST /api/auth/login`
 - `GET /api/auth/me` (authenticated user)
 - `PATCH /api/auth/me` (authenticated user; updates `name`, `email`, `phone`, or `password`)
@@ -58,6 +60,6 @@ apps/
 - `GET /api/admin/metrics`
 - `PATCH /api/admin/providers/:id/verify`
 
-Registration returns `{ "token": "..." }`. Fetch the authenticated account separately with `GET /api/auth/me` using `Authorization: Bearer YOUR_TOKEN`. The API validates request bodies, uses parameterized SQL, and centralizes errors.
+Registration is two-step: `POST /api/auth/register` accepts the registration details and PostgreSQL generates/stores a 6-digit OTP before email delivery; `POST /api/auth/verify-email` accepts the emailed OTP with the same account details, creates the account, and returns `{ "token": "..." }`. `POST /api/auth/verify-otp` remains available as a compatibility alias. The registration request must not send an OTP. The verify request must include `email`, `otp`, `name`, `password`, `phone`, and optional `role`. Fetch the authenticated account separately with `GET /api/auth/me` using `Authorization: Bearer YOUR_TOKEN`. The API validates request bodies, uses parameterized SQL, and centralizes errors.
 
 Email notifications use Gmail SMTP. Copy `apps/server/.env.example` to `apps/server/.env`, set `SMTP_USER` to the Gmail address that generated the app password, and set `SMTP_PASSWORD` to a newly generated app password without spaces. `MAIL_NOTIFY_TO` is optional and defaults to `SMTP_USER`. Successful registrations, logins, and bookings send notifications. Never commit `.env` or share an app password.
