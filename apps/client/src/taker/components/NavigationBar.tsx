@@ -13,7 +13,7 @@ export default function NavigationBar() {
 
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-[#f4f8fc]/95 backdrop-blur">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-6 px-5 py-4 lg:px-9">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-2 lg:px-6">
         <a href="/" className="flex shrink-0 items-center gap-3" aria-label="GharSewa home">
           <img
             src="/assets/gharsewalogo.png"
@@ -22,11 +22,11 @@ export default function NavigationBar() {
           />
           <span className="leading-tight">
             <span className="block text-2xl font-bold tracking-tight text-slate-900">GharSewa</span>
-            <span className="mt-1 block text-xs font-semibold tracking-[0.2em] text-blue-600">GHAR KO SEVA</span>
+            <span className="block text-xs font-semibold tracking-[0.2em] text-blue-600">GHAR KO SEVA</span>
           </span>
         </a>
 
-        <nav className="hidden items-center gap-8 text-base font-semibold text-slate-700 lg:flex">
+        <nav className="hidden items-center gap-6 text-base font-semibold text-slate-700 lg:flex">
           {links.map((link) => (
             <a key={link.label} href={link.href} className="transition hover:text-[#2148b5]">
               {link.label}
@@ -34,7 +34,7 @@ export default function NavigationBar() {
           ))}
           <a
             href="#messages"
-            className="flex items-center gap-2 rounded-xl bg-[#2148b5] px-5 py-3 text-white transition hover:bg-blue-800"
+            className="flex items-center gap-2 rounded-xl bg-[#2148b5] px-4 py-2 text-white transition hover:bg-blue-800"
           >
             <MessageSquare size={18} />
             <span>Messages</span>
@@ -56,13 +56,13 @@ export default function NavigationBar() {
       </div>
 
       {menuOpen && (
-        <nav className="border-t border-slate-200 px-5 py-3 lg:hidden">
+        <nav className="border-t border-slate-200 px-4 py-2 lg:hidden">
           <div className="mx-auto flex max-w-[1600px] flex-col gap-1">
             {links.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
-                className="rounded-lg px-3 py-2.5 font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#2148b5]"
+                className="rounded-lg px-3 py-2 font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#2148b5]"
                 onClick={() => setMenuOpen(false)}
               >
                 {link.label}
@@ -70,7 +70,7 @@ export default function NavigationBar() {
             ))}
             <a
               href="#messages"
-              className="mt-1 flex items-center gap-2 rounded-lg bg-[#2148b5] px-3 py-2.5 font-semibold text-white"
+              className="mt-1 flex items-center gap-2 rounded-lg bg-[#2148b5] px-3 py-2 font-semibold text-white"
               onClick={() => setMenuOpen(false)}
             >
               <MessageSquare size={18} />
