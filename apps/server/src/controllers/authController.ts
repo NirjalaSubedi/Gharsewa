@@ -307,9 +307,12 @@ export async function updateProviderVerification(
   });
 }
 
-export async function listUsersForAdmin(req: Request, res: Response): Promise<void> {
+export async function listUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
   const { page, limit } = adminUsersQuerySchema.parse(req.query);
-  const offset = (page - 1) * limit;
+  const isAdmin = req.user!.role === 'admin';
+  const resultPage = isAdmin ? page : 1;
+  const resultLimit = isAdmin ? limit : 1;
+  const offset = (resultPage - 1) * resultLimit;
 
   const [usersResult, countResult] = await Promise.all([
     pool.query(
@@ -330,12 +333,15 @@ export async function listUsersForAdmin(req: Request, res: Response): Promise<vo
         created_at,
         last_login_at
       FROM public.users
+      ${isAdmin ? '' : 'WHERE id = $3'}
       ORDER BY created_at DESC, id DESC
       LIMIT $1 OFFSET $2
       `,
-      [limit, offset]
+      isAdmin ? [resultLimit, offset] : [resultLimit, offset, req.user!.id]
     ),
-    pool.query('SELECT COUNT(*)::int AS total FROM public.users')
+    isAdmin
+      ? pool.query('SELECT COUNT(*)::int AS total FROM public.users')
+      : pool.query('SELECT COUNT(*)::int AS total FROM public.users WHERE id = $1', [req.user!.id])
   ]);
 
   const total = Number(countResult.rows[0].total);
@@ -343,10 +349,10 @@ export async function listUsersForAdmin(req: Request, res: Response): Promise<vo
   res.json({
     users: usersResult.rows,
     pagination: {
-      page,
-      limit,
+      page: resultPage,
+      limit: resultLimit,
       total,
-      totalPages: Math.ceil(total / limit)
+      totalPages: Math.ceil(total / resultLimit)
     }
   });
 }
