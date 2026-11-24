@@ -1,6 +1,6 @@
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Search, MapPin, Star, ShieldCheck, MessageCircle, ChevronRight, Wrench, Sparkles, ChefHat, Scissors, Wheat } from 'lucide-react';
+import { Search, MapPin, Star, ShieldCheck, ChevronRight, Wrench, Sparkles, ChefHat, Scissors, Wheat } from 'lucide-react';
 import './index.css';
 import NavigationBar from './taker/components/NavigationBar.js';
 
@@ -27,7 +27,6 @@ function App() {
       <section id="services" className="mb-12"><div className="mb-4 flex items-end justify-between"><div><h2 className="text-2xl font-bold">What do you need today?</h2><p className="mt-1 text-sm text-slate-500">Popular services near you <span className="text-forest">• Itahari</span></p></div><button className="hidden text-sm font-semibold text-forest sm:block">View all services <ChevronRight className="inline" size={16} /></button></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">{categories.map(c => { const Icon = c.icon; return <button key={c.name} className="card group p-4 text-left transition hover:-translate-y-1 hover:shadow-md" onClick={() => setSelected(c.name)}><div className={`mb-7 inline-flex rounded-xl p-3 ${c.color}`}><Icon size={22} /></div><div className="font-semibold">{c.name}</div><div className="mt-1 text-xs text-slate-400">{c.np}</div></button> })}</div></section>
       <section id="providers"><div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-bold">{selected ?? 'Top-rated professionals'} nearby</h2><p className="mt-1 text-sm text-slate-500">Available now within 5 km of your location</p></div><button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"><MapPin size={16} className="text-forest" /> Itahari, Nepal <ChevronRight size={15} /></button></div><div className="grid gap-4 md:grid-cols-3">{providers.filter(p => !search || `${p.name} ${p.job}`.toLowerCase().includes(search.toLowerCase())).map(p => <ProviderCard key={p.name} provider={p} />)}</div></section>
     </main>
-    <button id="messages" className="fixed bottom-6 right-6 flex items-center gap-2 rounded-full bg-ink px-5 py-3 font-semibold text-white shadow-xl"><MessageCircle size={18} /> Chat</button>
   </div>;
 }
 function ProviderCard({ provider: p }: { provider: typeof providers[number] }) {
