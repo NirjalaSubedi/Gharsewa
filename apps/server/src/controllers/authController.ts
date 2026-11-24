@@ -48,6 +48,15 @@ const loginSchema = z.object({
   password: z.string().min(1).max(72)
 });
 
+const providerVerificationParamsSchema = z.object({
+  id: z.coerce.number().int().positive()
+});
+
+const providerVerificationBodySchema = z.object({
+  status: z.enum(['approved', 'rejected']),
+  rejectionReason: z.string().trim().min(1).max(1000).optional()
+});
+
 function createToken(user: AuthUserPayload): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -254,4 +263,41 @@ export async function me(req: AuthenticatedRequest, res: Response): Promise<void
   );
 
   res.json(result.rows[0] ?? null);
+}
+
+export async function updateProviderVerification(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const { id } = providerVerificationParamsSchema.parse(req.params);
+  const body = providerVerificationBodySchema.parse(req.body);
+
+  if (body.status === 'rejected' && !body.rejectionReason) {
+    res.status(400).json({ error: 'A rejection reason is required' });
+    return;
+  }
+
+  const result = await pool.query(
+    `
+    UPDATE public.users
+    SET
+      verification_status = $2,
+      verified_by_admin_id = $3,
+      verified_at = NOW(),
+      rejection_reason = $4
+    WHERE id = $1 AND role = 'provider'
+    RETURNING id, email, verification_status, verified_by_admin_id, verified_at, rejection_reason
+    `,
+    [id, body.status, req.user!.id, body.status === 'rejected' ? body.rejectionReason : null]
+  );
+
+  if (!result.rowCount) {
+    res.status(404).json({ error: 'Provider not found' });
+    return;
+  }
+
+  res.json({
+    message: `Provider ${body.status}`,
+    provider: result.rows[0]
+  });
 }

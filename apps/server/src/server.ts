@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { z } from 'zod';
 import { pool } from './config/db.js';
+import adminRoutes from './routes/adminRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 
 const app = express();
@@ -17,6 +18,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error instanceof SyntaxError && 'body' in error) {
