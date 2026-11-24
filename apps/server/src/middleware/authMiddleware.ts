@@ -1,20 +1,20 @@
 import type { NextFunction, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import type { AuthenticatedRequest, AuthenticatedUser, UserRole } from '../types/index.js';
+import type { AuthenticatedRequest, AuthUserPayload, UserRole } from '../controllers/authController.js';
 
-function getJwtSecret(): string {
+export function authMiddleware(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): void {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    throw new Error('JWT_SECRET is required to start the server.');
+    res.status(500).json({ error: 'JWT_SECRET is not configured' });
+    return;
   }
-  return secret;
-}
-const jwtSecret = getJwtSecret();
 
-export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  const token = req.headers.authorization?.startsWith('Bearer ')
-    ? req.headers.authorization.slice(7)
-    : undefined;
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined;
 
   if (!token) {
     res.status(401).json({ error: 'Authentication token required' });
@@ -22,26 +22,31 @@ export function authMiddleware(req: AuthenticatedRequest, res: Response, next: N
   }
 
   try {
-    const payload = jwt.verify(token, jwtSecret);
+    const decoded = jwt.verify(token, secret);
     if (
-      typeof payload !== 'object' ||
-      payload === null ||
-      typeof payload.id !== 'number' ||
-      typeof payload.email !== 'string' ||
-      !['taker', 'provider', 'admin'].includes(payload.role as string)
+      typeof decoded !== 'object' ||
+      decoded === null ||
+      typeof decoded.id !== 'number' ||
+      typeof decoded.email !== 'string' ||
+      !['taker', 'provider', 'admin'].includes(String(decoded.role))
     ) {
       res.status(401).json({ error: 'Invalid authentication token' });
       return;
     }
-    req.user = payload as AuthenticatedUser;
+
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role as UserRole
+    };
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired authentication token' });
   }
 }
 
-export function requireRole(...roles: UserRole[]): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-  return (req, res, next) => {
+export function requireRole(...roles: UserRole[]) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
       res.status(403).json({ error: 'Insufficient permissions' });
       return;
