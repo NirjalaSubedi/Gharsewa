@@ -7,7 +7,7 @@ import type { AuthenticatedRequest } from '../types/index.js';
 const bookingId = z.string().uuid();
 
 const createBookingSchema = z.object({
-  providerId: bookingId,
+  providerId: z.coerce.number().int().positive(),
   totalPrice: z.number().nonnegative(),
   taskDescription: z.string().trim().min(5).max(2000),
   scheduledAt: z.string().datetime()
@@ -15,6 +15,14 @@ const createBookingSchema = z.object({
 
 export async function createBooking(req: AuthenticatedRequest, res: Response): Promise<void> {
   const body = createBookingSchema.parse(req.body);
+  const provider = await pool.query(
+    `SELECT id FROM users WHERE id=$1 AND role='provider' AND is_email_verified=TRUE AND verification_status='verified'`,
+    [body.providerId]
+  );
+  if (!provider.rowCount) {
+    res.status(400).json({ error: 'Provider not found or not verified' });
+    return;
+  }
   const result = await pool.query(
     `INSERT INTO bookings (taker_id, provider_id, total_price, task_description, scheduled_at)
      VALUES ($1, $2, $3, $4, $5) RETURNING *`,

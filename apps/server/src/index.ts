@@ -7,6 +7,7 @@ import { connectDatabase, pool } from './config/db.js';
 import { authMiddleware, requireRole } from './middleware/authMiddleware.js';
 import authRoutes from './routes/authRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
+import type { AuthenticatedRequest } from './types/index.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -35,13 +36,15 @@ app.post('/api/services', authMiddleware, requireRole('admin'), asyncRoute(async
 app.get('/api/providers', asyncRoute(async (req, res) => {
   const query = coordinates.extend({ radiusKm: z.coerce.number().positive().max(100).default(5), category: z.string().optional() }).parse(req.query);
   const values = [query.latitude, query.longitude, query.radiusKm, query.category ?? null];
-  const result = await pool.query(`SELECT p.id, u.name, u.phone, u.latitude, u.longitude, p.category, p.hourly_rate,
-    p.bio, p.is_verified, p.rating, (6371 * acos(least(1, cos(radians($1)) * cos(radians(u.latitude))
-    * cos(radians(u.longitude) - radians($2)) + sin(radians($1)) * sin(radians(u.latitude))))) AS distance_km
-    FROM providers p JOIN users u ON u.id = p.user_id
-    WHERE u.latitude IS NOT NULL AND u.longitude IS NOT NULL AND ($4::text IS NULL OR p.category = $4)
-    AND (6371 * acos(least(1, cos(radians($1)) * cos(radians(u.latitude)) * cos(radians(u.longitude) - radians($2))
-    + sin(radians($1)) * sin(radians(u.latitude))))) <= $3 ORDER BY distance_km, p.rating DESC`, values);
+  const result = await pool.query(`SELECT id,name,latitude,longitude,
+    (6371 * acos(least(1, cos(radians($1)) * cos(radians(latitude))
+    * cos(radians(longitude) - radians($2)) + sin(radians($1)) * sin(radians(latitude))))) AS distance_km
+    FROM users
+    WHERE role='provider' AND is_email_verified=TRUE AND verification_status='verified'
+    AND latitude IS NOT NULL AND longitude IS NOT NULL
+    AND (6371 * acos(least(1, cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2))
+    + sin(radians($1)) * sin(radians(latitude))))) <= $3
+    ORDER BY distance_km`, values);
   res.json(result.rows);
 }));
 
@@ -57,16 +60,38 @@ app.post('/api/estimate', asyncRoute(async (req, res) => {
   res.json({ category, currency: 'NPR', ...presets[category] });
 }));
 
-app.get('/api/admin/metrics', asyncRoute(async (_req, res) => {
+app.get('/api/admin/metrics', authMiddleware, requireRole('admin'), asyncRoute(async (_req, res) => {
   const result = await pool.query(`SELECT (SELECT count(*) FROM users WHERE role='taker') AS takers,
-    (SELECT count(*) FROM providers) AS providers, (SELECT count(*) FROM providers WHERE is_verified) AS verified_providers,
+    (SELECT count(*) FROM users WHERE role='provider') AS providers,
+    (SELECT count(*) FROM users WHERE role='provider' AND verification_status='verified') AS verified_providers,
     (SELECT count(*) FROM bookings) AS bookings, (SELECT coalesce(sum(total_price),0) FROM bookings WHERE status='completed') AS revenue`);
   res.json(result.rows[0]);
 }));
-app.patch('/api/admin/providers/:id/verify', asyncRoute(async (req, res) => {
-  const providerId = id.parse(req.params.id);
-  const verified = z.object({ verified: z.boolean() }).parse(req.body).verified;
-  const result = await pool.query('UPDATE providers SET is_verified=$1 WHERE id=$2 RETURNING *', [verified, providerId]);
+app.get('/api/admin/providers/pending', authMiddleware, requireRole('admin'), asyncRoute(async (_req, res) => {
+  const result = await pool.query(`
+    SELECT id,name,email,location,latitude,longitude,citizenship_phot,
+           verification_status,created_at
+    FROM users
+    WHERE role='provider' AND verification_status='pending'
+    ORDER BY created_at DESC
+  `);
+  res.json(result.rows);
+}));
+app.patch('/api/admin/providers/:id/verify', authMiddleware, requireRole('admin'), asyncRoute(async (req, res) => {
+  const providerId = z.coerce.number().int().positive().parse(req.params.id);
+  const body = z.object({
+    verified: z.boolean(),
+    rejectionReason: z.string().trim().max(1000).optional()
+  }).parse(req.body);
+  const result = await pool.query(`
+    UPDATE users
+    SET verification_status=$1,
+        verified_by=$2,
+        verified_at=CASE WHEN $1='verified' THEN NOW() ELSE NULL END,
+        rejection_reason=$3
+    WHERE id=$4 AND role='provider'
+    RETURNING *
+  `, [body.verified ? 'verified' : 'rejected', (req as AuthenticatedRequest).user!.id, body.rejectionReason ?? null, providerId]);
   if (!result.rowCount) return res.status(404).json({ error: 'Provider not found' });
   res.json(result.rows[0]);
 }));
