@@ -57,6 +57,11 @@ const providerVerificationBodySchema = z.object({
   rejectionReason: z.string().trim().min(1).max(1000).optional()
 });
 
+const adminUsersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50)
+});
+
 function createToken(user: AuthUserPayload): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -299,5 +304,49 @@ export async function updateProviderVerification(
   res.json({
     message: `Provider ${body.status}`,
     provider: result.rows[0]
+  });
+}
+
+export async function listUsersForAdmin(req: Request, res: Response): Promise<void> {
+  const { page, limit } = adminUsersQuerySchema.parse(req.query);
+  const offset = (page - 1) * limit;
+
+  const [usersResult, countResult] = await Promise.all([
+    pool.query(
+      `
+      SELECT
+        id,
+        email,
+        location,
+        latitude,
+        longitude,
+        role,
+        is_email_verified,
+        citizenship_photo_url,
+        verification_status,
+        verified_by_admin_id,
+        verified_at,
+        rejection_reason,
+        created_at,
+        last_login_at
+      FROM public.users
+      ORDER BY created_at DESC, id DESC
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset]
+    ),
+    pool.query('SELECT COUNT(*)::int AS total FROM public.users')
+  ]);
+
+  const total = Number(countResult.rows[0].total);
+
+  res.json({
+    users: usersResult.rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
   });
 }
