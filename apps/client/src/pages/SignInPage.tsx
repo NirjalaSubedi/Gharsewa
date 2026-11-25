@@ -28,10 +28,18 @@ function isLoginResponse(value: unknown): value is LoginResponse {
 
 export default function SignInPage() {
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [signupStep, setSignupStep] = useState<'role' | 'details' | 'verify' | 'complete' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [location, setLocation] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [citizenshipPhoto, setCitizenshipPhoto] = useState('');
+  const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -69,23 +77,120 @@ export default function SignInPage() {
     }
   }
 
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedRole) {
+      setError('Choose an account type to continue');
+      return;
+    }
+
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
+      const response = await fetch(`${apiBaseUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: signupEmail,
+          password: signupPassword,
+          role: selectedRole,
+          ...(location.trim() ? { location: location.trim() } : {}),
+          ...(latitude.trim() ? { latitude: Number(latitude) } : {}),
+          ...(longitude.trim() ? { longitude: Number(longitude) } : {}),
+          ...(selectedRole === 'provider' ? { citizenshipPhoto: citizenshipPhoto.trim() } : {})
+        })
+      });
+      const payload: unknown = await response.json();
+
+      if (!response.ok) {
+        const errorMessage =
+          typeof payload === 'object' && payload !== null && 'error' in payload
+            ? String(payload.error)
+            : 'Unable to create account';
+        throw new Error(errorMessage);
+      }
+
+      if (typeof payload !== 'object' || payload === null || !('email' in payload) || typeof payload.email !== 'string') {
+        throw new Error('Invalid response from the server');
+      }
+
+      setSignupEmail(payload.email);
+      setSuccessMessage('A verification code has been sent to your email.');
+      setSignupStep('verify');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Unable to create account');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleVerifyEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
+      const response = await fetch(`${apiBaseUrl}/api/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: signupEmail, otp })
+      });
+      const payload: unknown = await response.json();
+
+      if (!response.ok) {
+        const errorMessage =
+          typeof payload === 'object' && payload !== null && 'error' in payload
+            ? String(payload.error)
+            : 'Unable to verify email';
+        throw new Error(errorMessage);
+      }
+
+      if (
+        typeof payload !== 'object' ||
+        payload === null ||
+        !('message' in payload) ||
+        typeof payload.message !== 'string' ||
+        !('token' in payload) ||
+        (typeof payload.token !== 'string' && payload.token !== null)
+      ) {
+        throw new Error('Invalid response from the server');
+      }
+
+      if (payload.token) {
+        localStorage.setItem('gharsewaToken', payload.token);
+        window.location.assign('/');
+        return;
+      }
+
+      setSuccessMessage(payload.message);
+      setSignupStep('complete');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Unable to verify email');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f4f8fc] px-4 py-10">
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-lg">
-        {isSigningUp ? (
+        {signupStep === 'role' ? (
           <>
             <h1 className="text-center text-2xl font-bold text-slate-900">Create an account</h1>
             <p className="mt-1 text-center text-sm text-slate-600">Choose how you want to use GharSewa.</p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => setSelectedRole('taker')}
+                onClick={() => {
+                  setSelectedRole('taker');
+                  setSignupStep('details');
+                  setError('');
+                }}
                 aria-pressed={selectedRole === 'taker'}
-                className={`flex flex-col items-center rounded-xl border p-5 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2148b5] ${
-                  selectedRole === 'taker'
-                    ? 'border-[#2148b5] bg-blue-50'
-                    : 'border-slate-200 hover:border-[#2148b5] hover:bg-blue-50'
-                }`}
+                className="flex flex-col items-center rounded-xl border border-slate-200 p-5 text-center transition hover:border-[#2148b5] hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2148b5]"
               >
                 <House aria-hidden="true" className="mb-3 h-8 w-8 text-[#2148b5]" />
                 <span className="font-semibold text-slate-900">Taker</span>
@@ -93,19 +198,179 @@ export default function SignInPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedRole('provider')}
+                onClick={() => {
+                  setSelectedRole('provider');
+                  setSignupStep('details');
+                  setError('');
+                }}
                 aria-pressed={selectedRole === 'provider'}
-                className={`flex flex-col items-center rounded-xl border p-5 text-center transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2148b5] ${
-                  selectedRole === 'provider'
-                    ? 'border-[#2148b5] bg-blue-50'
-                    : 'border-slate-200 hover:border-[#2148b5] hover:bg-blue-50'
-                }`}
+                className="flex flex-col items-center rounded-xl border border-slate-200 p-5 text-center transition hover:border-[#2148b5] hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2148b5]"
               >
                 <BriefcaseBusiness aria-hidden="true" className="mb-3 h-8 w-8 text-[#2148b5]" />
                 <span className="font-semibold text-slate-900">Provider</span>
                 <span className="mt-1 text-sm text-slate-600">Offer your services</span>
               </button>
             </div>
+          </>
+        ) : signupStep === 'details' && selectedRole ? (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setSignupStep('role');
+                setError('');
+              }}
+              className="mb-4 text-sm font-medium text-[#2148b5] hover:underline"
+            >
+              Change account type
+            </button>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Create {selectedRole === 'taker' ? 'Taker' : 'Provider'} account
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">Enter your details to get started.</p>
+
+            <form onSubmit={handleRegister} className="mt-6">
+              <label htmlFor="signup-email" className="block text-sm font-medium text-slate-700">
+                Email
+              </label>
+              <input
+                id="signup-email"
+                type="email"
+                autoComplete="email"
+                maxLength={255}
+                required
+                value={signupEmail}
+                onChange={(event) => setSignupEmail(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#2148b5]"
+              />
+
+              <label htmlFor="signup-password" className="mt-4 block text-sm font-medium text-slate-700">
+                Password
+              </label>
+              <input
+                id="signup-password"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                maxLength={72}
+                required
+                value={signupPassword}
+                onChange={(event) => setSignupPassword(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#2148b5]"
+              />
+
+              <label htmlFor="signup-location" className="mt-4 block text-sm font-medium text-slate-700">
+                Location <span className="font-normal text-slate-500">(optional)</span>
+              </label>
+              <input
+                id="signup-location"
+                type="text"
+                autoComplete="address-level2"
+                minLength={2}
+                maxLength={255}
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#2148b5]"
+              />
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="signup-latitude" className="block text-sm font-medium text-slate-700">
+                    Latitude <span className="font-normal text-slate-500">(optional)</span>
+                  </label>
+                  <input
+                    id="signup-latitude"
+                    type="number"
+                    min={-90}
+                    max={90}
+                    step="any"
+                    value={latitude}
+                    onChange={(event) => setLatitude(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#2148b5]"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="signup-longitude" className="block text-sm font-medium text-slate-700">
+                    Longitude <span className="font-normal text-slate-500">(optional)</span>
+                  </label>
+                  <input
+                    id="signup-longitude"
+                    type="number"
+                    min={-180}
+                    max={180}
+                    step="any"
+                    value={longitude}
+                    onChange={(event) => setLongitude(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#2148b5]"
+                  />
+                </div>
+              </div>
+
+              {selectedRole === 'provider' && (
+                <>
+                  <label htmlFor="signup-citizenship-photo" className="mt-4 block text-sm font-medium text-slate-700">
+                    Citizenship photo URL
+                  </label>
+                  <input
+                    id="signup-citizenship-photo"
+                    type="url"
+                    maxLength={500}
+                    required
+                    value={citizenshipPhoto}
+                    onChange={(event) => setCitizenshipPhoto(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#2148b5]"
+                  />
+                </>
+              )}
+
+              {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="mt-5 w-full rounded-lg bg-[#2148b5] px-4 py-2.5 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+              >
+                {isSubmitting ? 'Creating account...' : 'Create account'}
+              </button>
+            </form>
+          </>
+        ) : signupStep === 'verify' ? (
+          <>
+            <h1 className="text-2xl font-bold text-slate-900">Verify your email</h1>
+            <p className="mt-1 text-sm text-slate-600">{successMessage} Enter the 6-digit code sent to {signupEmail}.</p>
+            <form onSubmit={handleVerifyEmail} className="mt-6">
+              <label htmlFor="signup-otp" className="block text-sm font-medium text-slate-700">
+                Verification code
+              </label>
+              <input
+                id="signup-otp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                required
+                value={otp}
+                onChange={(event) => setOtp(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#2148b5]"
+              />
+              {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="mt-5 w-full rounded-lg bg-[#2148b5] px-4 py-2.5 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+              >
+                {isSubmitting ? 'Verifying...' : 'Verify email'}
+              </button>
+            </form>
+          </>
+        ) : signupStep === 'complete' ? (
+          <>
+            <h1 className="text-2xl font-bold text-slate-900">Email verified</h1>
+            <p className="mt-2 text-sm text-slate-600">{successMessage}</p>
+            <a href="/signin" className="mt-5 block text-center text-sm font-medium text-[#2148b5] hover:underline">
+              Back to sign in
+            </a>
           </>
         ) : (
           <>
@@ -154,8 +419,17 @@ export default function SignInPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setIsSigningUp(true);
                   setSelectedRole(null);
+                  setSignupStep('role');
+                  setError('');
+                  setSuccessMessage('');
+                  setSignupEmail('');
+                  setSignupPassword('');
+                  setLocation('');
+                  setLatitude('');
+                  setLongitude('');
+                  setCitizenshipPhoto('');
+                  setOtp('');
                 }}
                 className="font-medium text-[#2148b5] hover:underline"
               >
@@ -165,7 +439,7 @@ export default function SignInPage() {
           </>
         )}
 
-        {!isSigningUp && (
+        {signupStep === null && (
           <a href="/" className="mt-5 block text-center text-sm font-medium text-[#2148b5] hover:underline">
             Back to home
           </a>
