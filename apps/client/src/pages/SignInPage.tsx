@@ -67,9 +67,6 @@ export default function SignInPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f4f8fc] px-4 py-10">
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-lg">
-        <a href="/" className="mb-5 flex items-center gap-3" aria-label="GharSewa home">
-          <img src="/assets/gharsewalogo.png" alt="" className="h-16 w-16 object-contain" />
-        </a>
         <h1 className="text-2xl font-bold text-slate-900">Sign in</h1>
         <p className="mt-1 text-sm text-slate-600">Sign in to your GharSewa account.</p>
 
