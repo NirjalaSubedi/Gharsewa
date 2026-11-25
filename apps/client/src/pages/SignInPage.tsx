@@ -74,8 +74,8 @@ export default function SignInPage() {
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-lg">
         {isSigningUp ? (
           <>
-            <h1 className="text-2xl font-bold text-slate-900">Create an account</h1>
-            <p className="mt-1 text-sm text-slate-600">Choose how you want to use GharSewa.</p>
+            <h1 className="text-center text-2xl font-bold text-slate-900">Create an account</h1>
+            <p className="mt-1 text-center text-sm text-slate-600">Choose how you want to use GharSewa.</p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -106,16 +106,6 @@ export default function SignInPage() {
                 <span className="mt-1 text-sm text-slate-600">Offer your services</span>
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setIsSigningUp(false);
-                setSelectedRole(null);
-              }}
-              className="mt-5 w-full text-center text-sm font-medium text-[#2148b5] hover:underline"
-            >
-              Already have an account? Sign in
-            </button>
           </>
         ) : (
           <>
@@ -175,9 +165,11 @@ export default function SignInPage() {
           </>
         )}
 
-        <a href="/" className="mt-5 block text-center text-sm font-medium text-[#2148b5] hover:underline">
-          Back to home
-        </a>
+        {!isSigningUp && (
+          <a href="/" className="mt-5 block text-center text-sm font-medium text-[#2148b5] hover:underline">
+            Back to home
+          </a>
+        )}
       </section>
     </main>
   );
