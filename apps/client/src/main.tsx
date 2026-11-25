@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Search, MapPin, Star, ShieldCheck, ChevronRight, Wrench, Sparkles, ChefHat, Scissors, Wheat } from 'lucide-react';
 import './index.css';
 import NavigationBar from './taker/components/NavigationBar.js';
+import SignInPage from './pages/SignInPage.js';
 
 const categories = [
   { name: 'Plumbing', np: 'प्लम्बिङ', icon: Wrench, color: 'bg-blue-50 text-blue-700' },
@@ -20,6 +21,10 @@ const providers = [
 function App() {
   const [selected, setSelected] = useState<string>();
   const [search, setSearch] = useState('');
+  if (window.location.pathname === '/signin') {
+    return <SignInPage />;
+  }
+
   return <div className="min-h-screen">
     <NavigationBar />
     <main className="mx-auto max-w-7xl px-5 py-10">
