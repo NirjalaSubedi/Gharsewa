@@ -47,7 +47,7 @@ export default function HomePage() {
 
           <div
             id="ai-estimate"
-            className="mx-auto mt-5 max-w-5xl rounded-[1.6rem] bg-white p-2 shadow-2xl shadow-black/30 sm:rounded-full"
+            className="mx-auto mt-5 max-w-4xl rounded-[1.6rem] bg-white p-2 shadow-2xl shadow-black/30 sm:rounded-full"
           >
             <div role="search" className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <label htmlFor="home-service-search" className="sr-only">

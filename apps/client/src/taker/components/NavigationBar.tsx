@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BadgeCheck, CalendarDays, LogOut, MapPin, Menu, MessageSquare, UserRound, X } from 'lucide-react';
+import { Menu, MessageSquare, UserRound, X } from 'lucide-react';
 
 interface UserProfile {
   id: number;
@@ -78,27 +78,6 @@ export default function NavigationBar() {
     return () => controller.abort();
   }, [authToken, profileOpen]);
 
-  useEffect(() => {
-    if (!profileOpen) return;
-
-    function handleOutsideClick(event: PointerEvent) {
-      if (!(event.target instanceof Element) || !event.target.closest('[data-profile-menu]')) {
-        setProfileOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setProfileOpen(false);
-    }
-
-    document.addEventListener('pointerdown', handleOutsideClick);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', handleOutsideClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [profileOpen]);
-
   function handleSignOut() {
     localStorage.removeItem('gharsewaToken');
     setAuthToken(null);
@@ -110,94 +89,43 @@ export default function NavigationBar() {
     if (!profileOpen) return null;
 
     return (
-      <div className="absolute right-0 top-full z-30 mt-3 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-sm font-normal text-slate-700 shadow-[0_18px_50px_-16px_rgba(15,23,42,0.28)] ring-1 ring-black/5">
-        <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50 px-5 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2148b5] text-white shadow-md shadow-blue-900/15">
-              <UserRound size={23} />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-semibold text-slate-900">Your profile</h2>
-              <p className="mt-0.5 truncate text-sm text-slate-500">
-                {profile?.email ?? 'Account information'}
+      <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 text-sm font-normal text-slate-700 shadow-xl">
+        <h2 className="mb-3 text-base font-semibold text-slate-900">Profile</h2>
+        {profileLoading ? (
+          <p role="status" className="py-2 text-slate-500">Loading profile...</p>
+        ) : profileError ? (
+          <p role="alert" className="py-2 text-red-600">{profileError}</p>
+        ) : profile ? (
+          <div className="space-y-2">
+            <p className="break-all font-medium text-slate-900">{profile.email}</p>
+            <p><span className="text-slate-500">Account type:</span> {profile.role}</p>
+            {profile.location && (
+              <p><span className="text-slate-500">Location:</span> {profile.location}</p>
+            )}
+            {typeof profile.is_email_verified === 'boolean' && (
+              <p>
+                <span className="text-slate-500">Email:</span>{' '}
+                {profile.is_email_verified ? 'Verified' : 'Not verified'}
               </p>
-            </div>
+            )}
+            {profile.role === 'provider' && profile.verification_status && (
+              <p>
+                <span className="text-slate-500">Provider status:</span> {profile.verification_status}
+              </p>
+            )}
+            {profile.created_at && (
+              <p>
+                <span className="text-slate-500">Member since:</span>{' '}
+                {new Date(profile.created_at).toLocaleDateString()}
+              </p>
+            )}
           </div>
-          {profile && (
-            <span className="mt-4 inline-flex rounded-full border border-blue-100 bg-white/80 px-3 py-1 text-xs font-semibold capitalize text-[#2148b5]">
-              {profile.role} account
-            </span>
-          )}
-        </div>
-
-        <div className="px-5 py-4">
-          {profileLoading ? (
-            <p role="status" className="flex items-center gap-2 py-1 text-slate-500">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-[#2148b5]" />
-              Loading your profile...
-            </p>
-          ) : profileError ? (
-            <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">
-              {profileError}
-            </p>
-          ) : profile ? (
-            <div className="space-y-3">
-              {profile.location && (
-                <div className="flex items-center gap-3">
-                  <MapPin size={17} className="shrink-0 text-slate-400" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-500">Location</p>
-                    <p className="truncate font-medium text-slate-800">{profile.location}</p>
-                  </div>
-                </div>
-              )}
-              {typeof profile.is_email_verified === 'boolean' && (
-                <div className="flex items-center gap-3">
-                  <BadgeCheck size={17} className="shrink-0 text-slate-400" />
-                  <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                    <p className="text-xs text-slate-500">Email status</p>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        profile.is_email_verified
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-amber-50 text-amber-700'
-                      }`}
-                    >
-                      {profile.is_email_verified ? 'Verified' : 'Not verified'}
-                    </span>
-                  </div>
-                </div>
-              )}
-              {profile.role === 'provider' && profile.verification_status && (
-                <div className="flex items-center gap-3">
-                  <BadgeCheck size={17} className="shrink-0 text-slate-400" />
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-500">Provider status</p>
-                    <p className="font-medium capitalize text-slate-800">{profile.verification_status}</p>
-                  </div>
-                </div>
-              )}
-              {profile.created_at && (
-                <div className="flex items-center gap-3">
-                  <CalendarDays size={17} className="shrink-0 text-slate-400" />
-                  <div>
-                    <p className="text-xs text-slate-500">Member since</p>
-                    <p className="font-medium text-slate-800">
-                      {new Date(profile.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : null}
-        </div>
-
+        ) : null}
         <button
           type="button"
           onClick={handleSignOut}
-          className="flex w-full items-center gap-2.5 border-t border-slate-100 px-5 py-4 text-left font-semibold text-slate-600 transition hover:bg-red-50 hover:text-red-700"
+          className="mt-4 w-full rounded-lg border-t border-slate-100 pt-3 text-left font-semibold text-slate-700 hover:text-[#2148b5]"
         >
-          <LogOut size={17} />
           Sign out
         </button>
       </div>
@@ -215,7 +143,9 @@ export default function NavigationBar() {
           />
           <span className="leading-tight">
             <span className="block text-2xl font-bold tracking-tight text-slate-900">GharSewa</span>
-            <span className="block text-xs font-semibold tracking-[0.2em] text-blue-600">GHAR KO SEVA</span>
+            <span className="block text-xs font-semibold tracking-[0.2em] text-blue-600">
+              GHAR KO SEVA
+            </span>
           </span>
         </a>
 
@@ -238,7 +168,7 @@ export default function NavigationBar() {
                   2
                 </span>
               </a>
-              <div className="relative" data-profile-menu>
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => setProfileOpen(!profileOpen)}
@@ -299,7 +229,7 @@ export default function NavigationBar() {
                     2
                   </span>
                 </a>
-                <div className="relative mt-1" data-profile-menu>
+                <div className="relative mt-1">
                   <button
                     type="button"
                     onClick={() => setProfileOpen(!profileOpen)}
