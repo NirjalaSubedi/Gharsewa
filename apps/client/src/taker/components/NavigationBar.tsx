@@ -1,5 +1,25 @@
-import { useState } from 'react';
-import { Menu, MessageSquare, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Menu, MessageSquare, UserRound, X } from 'lucide-react';
+
+interface UserProfile {
+  id: number;
+  email: string;
+  location?: string | null;
+  role: 'taker' | 'provider' | 'admin';
+  is_email_verified?: boolean;
+  verification_status?: string | null;
+  created_at?: string | null;
+}
+
+function isUserProfile(value: unknown): value is UserProfile {
+  if (typeof value !== 'object' || value === null) return false;
+  const profile = value as Record<string, unknown>;
+  return (
+    typeof profile.id === 'number' &&
+    typeof profile.email === 'string' &&
+    (profile.role === 'taker' || profile.role === 'provider' || profile.role === 'admin')
+  );
+}
 
 const links = [
   { label: 'Services', href: '#services' },
@@ -11,10 +31,105 @@ const links = [
 export default function NavigationBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('gharsewaToken'));
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
+  useEffect(() => {
+    if (!profileOpen || !authToken) return;
+
+    const controller = new AbortController();
+    const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
+    setProfileLoading(true);
+    setProfileError('');
+
+    async function loadProfile() {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+          signal: controller.signal
+        });
+        const payload: unknown = await response.json();
+
+        if (!response.ok) {
+          const message =
+            typeof payload === 'object' && payload !== null && 'error' in payload
+              ? String(payload.error)
+              : `Unable to load profile (HTTP ${response.status})`;
+          throw new Error(message);
+        }
+
+        if (!isUserProfile(payload)) {
+          throw new Error('Invalid profile response from the server');
+        }
+
+        setProfile(payload);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setProfileError(error instanceof Error ? error.message : 'Unable to load profile');
+        }
+      } finally {
+        if (!controller.signal.aborted) setProfileLoading(false);
+      }
+    }
+
+    void loadProfile();
+    return () => controller.abort();
+  }, [authToken, profileOpen]);
 
   function handleSignOut() {
     localStorage.removeItem('gharsewaToken');
     setAuthToken(null);
+    setProfile(null);
+    setProfileOpen(false);
+  }
+
+  function renderProfileDropdown() {
+    if (!profileOpen) return null;
+
+    return (
+      <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 text-sm font-normal text-slate-700 shadow-xl">
+        <h2 className="mb-3 text-base font-semibold text-slate-900">Profile</h2>
+        {profileLoading ? (
+          <p role="status" className="py-2 text-slate-500">Loading profile...</p>
+        ) : profileError ? (
+          <p role="alert" className="py-2 text-red-600">{profileError}</p>
+        ) : profile ? (
+          <div className="space-y-2">
+            <p className="break-all font-medium text-slate-900">{profile.email}</p>
+            <p><span className="text-slate-500">Account type:</span> {profile.role}</p>
+            {profile.location && (
+              <p><span className="text-slate-500">Location:</span> {profile.location}</p>
+            )}
+            {typeof profile.is_email_verified === 'boolean' && (
+              <p>
+                <span className="text-slate-500">Email:</span>{' '}
+                {profile.is_email_verified ? 'Verified' : 'Not verified'}
+              </p>
+            )}
+            {profile.role === 'provider' && profile.verification_status && (
+              <p>
+                <span className="text-slate-500">Provider status:</span> {profile.verification_status}
+              </p>
+            )}
+            {profile.created_at && (
+              <p>
+                <span className="text-slate-500">Member since:</span>{' '}
+                {new Date(profile.created_at).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="mt-4 w-full rounded-lg border-t border-slate-100 pt-3 text-left font-semibold text-slate-700 hover:text-[#2148b5]"
+        >
+          Sign out
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -51,9 +166,18 @@ export default function NavigationBar() {
                   2
                 </span>
               </a>
-              <button type="button" onClick={handleSignOut} className="text-sm hover:text-[#2148b5]">
-                Sign out
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(!profileOpen)}
+                  aria-label={profileOpen ? 'Close profile menu' : 'Open profile menu'}
+                  aria-expanded={profileOpen}
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-[#2148b5] hover:text-[#2148b5]"
+                >
+                  <UserRound size={21} />
+                </button>
+                {renderProfileDropdown()}
+              </div>
             </>
           ) : (
             <a
@@ -103,16 +227,19 @@ export default function NavigationBar() {
                     2
                   </span>
                 </a>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSignOut();
-                    setMenuOpen(false);
-                  }}
-                  className="rounded-lg px-3 py-2 text-left font-semibold text-slate-700 hover:bg-blue-50"
-                >
-                  Sign out
-                </button>
+                <div className="relative mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setProfileOpen(!profileOpen)}
+                    aria-label={profileOpen ? 'Close profile menu' : 'Open profile menu'}
+                    aria-expanded={profileOpen}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 font-semibold text-slate-700 hover:bg-blue-50"
+                  >
+                    <UserRound size={19} />
+                    Profile
+                  </button>
+                  {renderProfileDropdown()}
+                </div>
               </>
             ) : (
               <a
