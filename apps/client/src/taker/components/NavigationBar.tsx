@@ -205,7 +205,7 @@ export default function NavigationBar() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-slate-200 bg-[#f4f8fc]/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-[#f4f8fc]/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-2 lg:px-6">
         <a href="/" className="flex shrink-0 items-center gap-3" aria-label="GharSewa home">
           <img
