@@ -23,12 +23,26 @@ const registerSchema = z
     email: z.string().trim().email().toLowerCase().max(255),
     password: z.string().min(8).max(72),
     location: z.string().trim().min(2).max(255).optional(),
-    latitude: z.coerce.number().min(-90).max(90).optional(),
-    longitude: z.coerce.number().min(-180).max(180).optional(),
+    latitude: z.preprocess(
+      (value) => (value === '' || value === null ? undefined : value),
+      z.coerce.number().min(-90).max(90).optional()
+    ),
+    longitude: z.preprocess(
+      (value) => (value === '' || value === null ? undefined : value),
+      z.coerce.number().min(-180).max(180).optional()
+    ),
     role: z.enum(['taker', 'provider']).default('taker'),
     citizenshipPhoto: z.string().trim().min(1).max(500).optional()
   })
   .superRefine((value, ctx) => {
+    if ((value.latitude === undefined) !== (value.longitude === undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [value.latitude === undefined ? 'latitude' : 'longitude'],
+        message: 'Latitude and longitude must be provided together'
+      });
+    }
+
     if (value.role === 'provider' && !value.citizenshipPhoto) {
       ctx.addIssue({
         code: 'custom',
@@ -45,7 +59,23 @@ const verifySchema = z.object({
 
 const loginSchema = z.object({
   email: z.string().trim().email().toLowerCase().max(255),
-  password: z.string().min(1).max(72)
+  password: z.string().min(1).max(72),
+  latitude: z.preprocess(
+    (value) => (value === '' || value === null ? undefined : value),
+    z.coerce.number().min(-90).max(90).optional()
+  ),
+  longitude: z.preprocess(
+    (value) => (value === '' || value === null ? undefined : value),
+    z.coerce.number().min(-180).max(180).optional()
+  )
+}).superRefine((value, ctx) => {
+  if ((value.latitude === undefined) !== (value.longitude === undefined)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: [value.latitude === undefined ? 'latitude' : 'longitude'],
+      message: 'Latitude and longitude must be provided together'
+    });
+  }
 });
 
 const providerVerificationParamsSchema = z.object({
@@ -231,7 +261,16 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  await pool.query('UPDATE public.users SET last_login_at = NOW() WHERE id = $1', [user.id]);
+  await pool.query(
+    `
+    UPDATE public.users
+    SET last_login_at = NOW(),
+        latitude = COALESCE($2, latitude),
+        longitude = COALESCE($3, longitude)
+    WHERE id = $1
+    `,
+    [user.id, body.latitude ?? null, body.longitude ?? null]
+  );
 
   res.json({
     token: createToken({ id: user.id, email: user.email, role: user.role }),

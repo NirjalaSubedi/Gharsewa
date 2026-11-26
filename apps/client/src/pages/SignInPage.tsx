@@ -1,7 +1,8 @@
-import { BriefcaseBusiness, House } from 'lucide-react';
+import { BriefcaseBusiness, House, MapPin } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 type UserRole = 'taker' | 'provider';
+type Coordinates = { latitude: number; longitude: number };
 
 type LoginResponse = {
   token: string;
@@ -26,6 +27,31 @@ function isLoginResponse(value: unknown): value is LoginResponse {
   return typeof user.id === 'number' && typeof user.email === 'string' && typeof user.role === 'string';
 }
 
+function getCurrentCoordinates(): Promise<Coordinates> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not supported by this browser.'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => resolve({ latitude: coords.latitude, longitude: coords.longitude }),
+      (geolocationError) => {
+        const message =
+          geolocationError.code === geolocationError.PERMISSION_DENIED
+            ? 'Location permission was denied.'
+            : geolocationError.code === geolocationError.POSITION_UNAVAILABLE
+              ? 'Your current location is unavailable.'
+              : geolocationError.code === geolocationError.TIMEOUT
+                ? 'Location request timed out.'
+                : 'Unable to get your location.';
+        reject(new Error(message));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
+}
+
 export default function SignInPage() {
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [signupStep, setSignupStep] = useState<'role' | 'details' | 'verify' | 'complete' | null>(null);
@@ -36,6 +62,8 @@ export default function SignInPage() {
   const [location, setLocation] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
   const [citizenshipPhoto, setCitizenshipPhoto] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
@@ -45,14 +73,24 @@ export default function SignInPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
+    setLocationError('');
     setIsSubmitting(true);
 
     try {
+      let coordinates: Coordinates | undefined;
+      try {
+        coordinates = await getCurrentCoordinates();
+      } catch (locationFailure) {
+        setLocationError(
+          `${locationFailure instanceof Error ? locationFailure.message : 'Unable to get your location.'} Continuing without location.`
+        );
+      }
+
       const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
       const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, ...(coordinates ?? {}) })
       });
       const payload: unknown = await response.json();
 
@@ -83,11 +121,31 @@ export default function SignInPage() {
       setError('Choose an account type to continue');
       return;
     }
+    if ((latitude.trim() === '') !== (longitude.trim() === '')) {
+      setLatitude('');
+      setLongitude('');
+    }
 
     setError('');
+    setLocationError('');
     setIsSubmitting(true);
 
     try {
+      let coordinates: Coordinates | undefined;
+      if (latitude.trim() && longitude.trim()) {
+        coordinates = { latitude: Number(latitude), longitude: Number(longitude) };
+      } else {
+        try {
+          coordinates = await getCurrentCoordinates();
+          setLatitude(String(coordinates.latitude));
+          setLongitude(String(coordinates.longitude));
+        } catch (locationFailure) {
+          setLocationError(
+            `${locationFailure instanceof Error ? locationFailure.message : 'Unable to get your location.'} Continuing without location.`
+          );
+        }
+      }
+
       const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
       const response = await fetch(`${apiBaseUrl}/api/auth/register`, {
         method: 'POST',
@@ -96,9 +154,8 @@ export default function SignInPage() {
           email: signupEmail,
           password: signupPassword,
           role: selectedRole,
+          ...(coordinates ?? {}),
           ...(location.trim() ? { location: location.trim() } : {}),
-          ...(latitude.trim() ? { latitude: Number(latitude) } : {}),
-          ...(longitude.trim() ? { longitude: Number(longitude) } : {}),
           ...(selectedRole === 'provider' ? { citizenshipPhoto: citizenshipPhoto.trim() } : {})
         })
       });
@@ -124,6 +181,20 @@ export default function SignInPage() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleGetLocation() {
+    setLocationError('');
+    setIsLocating(true);
+    getCurrentCoordinates()
+      .then(({ latitude: currentLatitude, longitude: currentLongitude }) => {
+        setLatitude(String(currentLatitude));
+        setLongitude(String(currentLongitude));
+      })
+      .catch((locationFailure: unknown) => {
+        setLocationError(locationFailure instanceof Error ? locationFailure.message : 'Unable to get your location.');
+      })
+      .finally(() => setIsLocating(false));
   }
 
   async function handleVerifyEmail(event: FormEvent<HTMLFormElement>) {
@@ -273,6 +344,17 @@ export default function SignInPage() {
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-[#2148b5]"
               />
 
+              <button
+                type="button"
+                onClick={handleGetLocation}
+                disabled={isLocating}
+                className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#2148b5] hover:underline disabled:opacity-60"
+              >
+                <MapPin aria-hidden="true" size={16} />
+                {isLocating ? 'Getting location...' : 'Use my current location'}
+              </button>
+              {locationError && <p role="alert" className="mt-2 text-sm text-red-600">{locationError}</p>}
+
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="signup-latitude" className="block text-sm font-medium text-slate-700">
@@ -324,10 +406,11 @@ export default function SignInPage() {
               )}
 
               {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+              {locationError && <p role="status" className="mt-3 text-sm text-amber-700">{locationError}</p>}
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLocating}
                 className="mt-5 w-full rounded-lg bg-[#2148b5] px-4 py-2.5 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
               >
                 {isSubmitting ? 'Creating account...' : 'Create account'}
@@ -405,6 +488,7 @@ export default function SignInPage() {
               />
 
               {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+              {locationError && <p role="status" className="mt-3 text-sm text-amber-700">{locationError}</p>}
 
               <button
                 type="submit"
@@ -428,6 +512,7 @@ export default function SignInPage() {
                   setLocation('');
                   setLatitude('');
                   setLongitude('');
+                  setLocationError('');
                   setCitizenshipPhoto('');
                   setOtp('');
                 }}
